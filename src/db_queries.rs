@@ -1,6 +1,6 @@
 use sqlx::PgPool;
 
-use crate::models::{TableColumn, UserDefinedEnums};
+use crate::models::{TableColumn, TableIndex, UserDefinedEnums};
 
 pub async fn get_table_columns(
     pool: &PgPool,
@@ -119,6 +119,38 @@ pub async fn get_user_defined_enums(
 
     let rows = sqlx::query_as::<_, UserDefinedEnums>(query)
         .bind(udt_names)
+        .fetch_all(pool)
+        .await?;
+    Ok(rows)
+}
+
+pub async fn get_indexes(
+    table_names: &Vec<String>,
+    pool: &PgPool,
+) -> sqlx::Result<Vec<TableIndex>> {
+    let query = "
+        SELECT
+            i.relname AS index_name,
+            t.relname AS table_name,
+            a.attname AS column_name,
+            ix.indisprimary AS is_primary
+        FROM
+            pg_class t
+                JOIN
+            pg_index ix ON t.oid = ix.indrelid
+                JOIN
+            pg_class i ON i.oid = ix.indexrelid
+                JOIN
+            pg_attribute a ON a.attnum = ANY(ix.indkey) AND a.attrelid = t.oid
+        WHERE
+            t.relname = ANY($1) AND
+            t.relnamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'public')
+        ORDER BY
+            i.relname, a.attname;
+            ";
+
+    let rows = sqlx::query_as::<_, TableIndex>(query)
+        .bind(table_names)
         .fetch_all(pool)
         .await?;
     Ok(rows)

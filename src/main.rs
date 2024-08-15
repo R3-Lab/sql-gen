@@ -124,6 +124,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .help("Derive created enums with given values")
                 .multiple(true)
                 .takes_value(true),
+        )
+        .arg(
+            Arg::with_name("redis-json-index")
+                .long("redis-json-index")
+                .short('r')
+                .value_name("SQLGEN_REDIS_JSON_INDEX")
+                .help("Create index with Redis JSON schema helpers")
+                .required(false)
+                .takes_value(false),
         );
 
     let migrate_subcommand = SubCommand::with_name("migrate")
@@ -243,6 +252,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let schemas: Option<Vec<&str>> =
             matches.values_of("schema").map(|schemas| schemas.collect());
         let force = matches.is_present("force");
+        let redis_json_index = matches.is_present("redis-json-index");
         let include_tables = matches.values_of("table").map(|v| v.collect::<Vec<&str>>());
         let exclude_tables = matches
             .values_of("exclude")
@@ -309,6 +319,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             date_time_lib,
             struct_derives,
             enum_derives,
+            redis_json_index,
         )
         .await?;
     } else if let Some(matches) = matches.subcommand_matches("migrate") {

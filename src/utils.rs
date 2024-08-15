@@ -149,6 +149,36 @@ pub fn generate_struct_code(table_name: &str, rows: &Vec<TableColumn>) -> String
     struct_code
 }
 
+pub fn generate_redis_json_index(table_name: &str, rows: &Vec<TableColumn>) -> String {
+    let mut buffer = String::new();
+
+    buffer.push_str(&format!(
+        "FT.CREATE idx_{0} ON JSON PREFIX 1 {0}: SCHEMA",
+        table_name
+    ));
+
+    for row in rows.iter() {
+        if row.table_name == table_name {
+            let field_type = convert_data_type_from_pg_to_redis(&row.data_type);
+
+            let sortable = if row.is_unique || row.is_primary_key {
+                "SORTABLE"
+            } else {
+                ""
+            };
+
+            let schema_part = format!(
+                " $.{} AS {} {} {}", // $.id AS id NUMERIC SORTABLE
+                row.column_name, row.column_name, field_type, sortable
+            );
+
+            buffer.push_str(&schema_part);
+        }
+    }
+
+    buffer
+}
+
 pub fn convert_data_type(data_type: &str) -> String {
     if data_type.to_lowercase().contains("char(") {
         return "String".to_string();
@@ -215,6 +245,28 @@ pub fn convert_data_type_from_pg(data_type: &str) -> String {
         "bool" => "boolean",
         "Vec<u8>" => "bytea", // is this right ?
         _ => panic!("Unknown type: {}", data_type),
+    }
+    .to_string()
+}
+
+pub fn convert_data_type_from_pg_to_redis(data_type: &str) -> String {
+    if data_type.to_lowercase().contains("char(") || data_type.starts_with("_") {
+        return "TAG".to_string();
+    }
+
+    match data_type {
+        "bool" | "boolean" => "TAG",
+        "bytea" => "TAG", // is this right?
+        "char" | "bpchar" | "character" => "TEXT",
+        "float4" | "real" | "float8" | "double precision" | "numeric" | "int2" | "smallint"
+        | "smallserial" | "int4" | "int" | "serial" | "int8" | "bigint" | "bigserial" => "NUMERIC",
+        // "void" => "()",
+        // "jsonb" | "json" => "serde_json::Value",
+        "text" | "_text" | "varchar" | "name" | "citext" => "TEXT",
+        "geometry" => "TEXT",
+        "time" | "timestamp" | "timestamptz" | "date" => "TAG",
+        "interval" => "TAG",
+        _ => "TEXT",
     }
     .to_string()
 }

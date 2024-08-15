@@ -5,7 +5,10 @@ use std::path::Path;
 
 use crate::db_queries::{get_table_columns, get_user_defined_enums};
 use crate::models::TableColumn;
-use crate::utils::{generate_enum_code, generate_struct_code, to_pascal_case, to_snake_case};
+use crate::utils::{
+    generate_enum_code, generate_redis_json_index, generate_struct_code, to_pascal_case,
+    to_snake_case,
+};
 
 use crate::query_generate::generate_query_code;
 use crate::utils::{DateTimeLib, SqlGenState};
@@ -22,6 +25,7 @@ pub async fn generate(
     date_time_lib: DateTimeLib,
     struct_derives: Vec<String>,
     enum_derives: Vec<String>,
+    redis_json_index: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
     // Connect to the Postgres database
     let pool = PgPoolOptions::new()
@@ -86,6 +90,8 @@ pub async fn generate(
         rs_enums.push(enum_code);
     }
 
+    let mut redis_indexes = Vec::new();
+
     // Generate structs and queries for each table
     for table in &tables {
         if let Some(ts) = include_tables.clone() {
@@ -98,6 +104,11 @@ pub async fn generate(
 
         // Generate the query code based on the row
         let query_code = generate_query_code(&table, &rows);
+
+        if redis_json_index {
+            let redis_index = generate_redis_json_index(&table, &rows);
+            redis_indexes.push(redis_index);
+        }
 
         let struct_file_path = format!("{}/{}.rs", output_folder, to_snake_case(&table));
         if Path::new(&struct_file_path).exists() && !force {
@@ -121,8 +132,13 @@ pub async fn generate(
         }
     }
 
-    let context_code =
-        generate_db_context(context.unwrap_or(&database_name), &rs_enums, &tables, &rows);
+    let context_code = generate_db_context(
+        context.unwrap_or(&database_name),
+        &rs_enums,
+        &tables,
+        &rows,
+        &redis_indexes,
+    );
     let context_file_path = format!("{}/mod.rs", output_folder);
     fs::write(context_file_path, context_code)?;
     Ok(())
@@ -133,6 +149,7 @@ fn generate_db_context(
     enums: &[String],
     tables: &[String],
     _rows: &[TableColumn],
+    redis_indexes: &[String],
 ) -> String {
     let mut db_context_code = String::new();
 
@@ -143,6 +160,17 @@ fn generate_db_context(
         db_context_code.push_str(enum_item);
         db_context_code.push_str("\n\n");
     }
+
+    if !redis_indexes.is_empty() {
+        db_context_code.push_str("pub fn all_redis_index() -> redis::pipeline::Pipeline {\n");
+        db_context_code.push_str("  Pipeline::new()");
+        for index in redis_indexes {
+            db_context_code.push_str("\n");
+            db_context_code.push_str(&format!(r#"    .cmd("{}")"#, index));
+        }
+        db_context_code.push_str("}\n\n");
+    }
+
     for table in tables {
         db_context_code.push_str(&format!("pub mod {};\n", to_snake_case(table)));
         db_context_code.push_str(&format!(

@@ -18,3 +18,11 @@ pub struct UserDefinedEnums {
     pub(crate) enum_name: String,
     pub(crate) enum_value: String,
 }
+
+#[derive(sqlx::FromRow, Clone)]
+pub struct TableIndex {
+    pub(crate) index_name: String,
+    pub(crate) table_name: String,
+    pub(crate) column_name: String,
+    pub(crate) is_primary: bool,
+}
