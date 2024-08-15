@@ -100,14 +100,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .help("Overwrites existing files sharing names in that folder"),
         )
         .arg(
-                Arg::with_name("datetime-lib")
-                    .long("datetime-lib")
-                    .default_value("chrono")
-                    .possible_values(&["chrono", "time"])
-                    .value_name("SQLGEN_DATETIME_LIB")
-                    .help("Specifies the library to use for date and time handling")
-                    .takes_value(true),
-            );
+            Arg::with_name("datetime-lib")
+                .long("datetime-lib")
+                .default_value("chrono")
+                .possible_values(&["chrono", "time"])
+                .value_name("SQLGEN_DATETIME_LIB")
+                .help("Specifies the library to use for date and time handling")
+                .takes_value(true),
+        )
+        .arg(
+            Arg::with_name("redis-json-index")
+                .long("redis-json-index")
+                .short('r')
+                .value_name("SQLGEN_REDIS_JSON_INDEX")
+                .help("Create index with Redis JSON schema helpers")
+                .required(false)
+                .takes_value(false),
+        );
 
     let migrate_subcommand = SubCommand::with_name("migrate")
         .about("Generate SQL migrations based on struct differences")
@@ -226,6 +235,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let schemas: Option<Vec<&str>> =
             matches.values_of("schema").map(|schemas| schemas.collect());
         let force = matches.is_present("force");
+        let redis_json_index = matches.is_present("redis-json-index");
         let include_tables = matches.values_of("table").map(|v| v.collect::<Vec<&str>>());
         let exclude_tables = matches
             .values_of("exclude")
@@ -258,6 +268,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             exclude_tables,
             schemas,
             date_time_lib,
+            redis_json_index,
         )
         .await?;
     } else if let Some(matches) = matches.subcommand_matches("migrate") {
