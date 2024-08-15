@@ -15,7 +15,6 @@ use crate::utils::{DateTimeLib, SqlGenState};
 use crate::STATE;
 
 pub async fn generate(
-    enable_serde: bool,
     output_folder: &str,
     database_url: &str,
     context: Option<&str>,
@@ -24,6 +23,8 @@ pub async fn generate(
     exclude_tables: Vec<String>,
     schemas: Option<Vec<&str>>,
     date_time_lib: DateTimeLib,
+    struct_derives: Vec<String>,
+    enum_derives: Vec<String>,
     redis_json_index: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
     // Connect to the Postgres database
@@ -77,13 +78,15 @@ pub async fn generate(
         .set(SqlGenState {
             user_defined: enums.clone(),
             date_time_lib,
+            struct_derives,
+            enum_derives,
         })
         .expect("Unable to set state");
 
     let mut rs_enums = Vec::new();
 
     for user_enum in enums {
-        let enum_code = generate_enum_code(&user_enum, &enum_rows, enable_serde);
+        let enum_code = generate_enum_code(&user_enum, &enum_rows);
         rs_enums.push(enum_code);
     }
 
@@ -97,7 +100,7 @@ pub async fn generate(
             }
         }
         // Generate the struct code based on the row
-        let struct_code = generate_struct_code(&table, &rows, enable_serde);
+        let struct_code = generate_struct_code(&table, &rows);
 
         // Generate the query code based on the row
         let query_code = generate_query_code(&table, &rows);
