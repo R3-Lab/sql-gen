@@ -162,13 +162,16 @@ fn generate_db_context(
     }
 
     if !redis_indexes.is_empty() {
-        db_context_code.push_str("pub fn all_redis_index() -> redis::pipeline::Pipeline {\n");
-        db_context_code.push_str("  Pipeline::new()");
+        db_context_code.push_str("pub fn all_redis_index() -> redis::Pipeline {\n");
+        db_context_code.push_str("  redis::Pipeline::new()");
         for index in redis_indexes {
             db_context_code.push_str("\n");
             db_context_code.push_str(&format!(r#"    .cmd("{}")"#, index));
+            db_context_code.push_str("\n    .ignore()");
+            println!("{}", index);
         }
-        db_context_code.push_str("}\n\n");
+        db_context_code.push_str("\n    .clone()");
+        db_context_code.push_str("\n}\n\n");
     }
 
     for table in tables {

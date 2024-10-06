@@ -134,7 +134,7 @@ pub fn generate_struct_code(table_name: &str, rows: &Vec<TableColumn>) -> String
         if row.table_name == table_name {
             let column_name = to_snake_case(&row.column_name);
             let mut data_type = convert_data_type(&row.udt_name);
-            if row.is_nullable {
+            if row.is_nullable || &row.udt_name == "geometry" {
                 data_type = format!("Option<{}>", data_type);
             }
             struct_code.push_str(&format!(

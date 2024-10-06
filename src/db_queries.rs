@@ -110,8 +110,6 @@ pub async fn get_user_defined_enums(
         FROM
             pg_type t
             JOIN pg_enum e ON t.oid = e.enumtypid
-        WHERE
-            t.typname = ANY($1)
         ORDER BY
             t.typname,
             e.enumsortorder;
